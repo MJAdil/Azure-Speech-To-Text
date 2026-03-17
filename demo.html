@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Azure Speech-to-Text Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0078d4;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+        .start-btn {
+            background-color: #107c10;
+            color: white;
+        }
+        .start-btn:hover:not(:disabled) {
+            background-color: #0e6e0e;
+        }
+        .stop-btn {
+            background-color: #d13438;
+            color: white;
+        }
+        .stop-btn:hover:not(:disabled) {
+            background-color: #b52d32;
+        }
+        .clear-btn {
+            background-color: #605e5c;
+            color: white;
+        }
+        .clear-btn:hover {
+            background-color: #484644;
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        .status.ready {
+            background-color: #dff6dd;
+            color: #107c10;
+        }
+        .status.listening {
+            background-color: #fff4ce;
+            color: #8a8000;
+        }
+        .status.error {
+            background-color: #fde7e9;
+            color: #d13438;
+        }
+        .results {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 20px;
+            min-height: 300px;
+            max-height: 500px;
+            background-color: #fafafa;
+            margin-bottom: 20px;
+            overflow-y: auto;
+        }
+        .partial-result {
+            color: #605e5c;
+            font-style: italic;
+            margin-bottom: 10px;
+            padding: 8px;
+            background-color: #f0f0f0;
+            border-radius: 3px;
+        }
+        .final-result {
+            color: #323130;
+            margin-bottom: 15px;
+            padding: 12px;
+            background-color: white;
+            border-left: 4px solid #0078d4;
+            border-radius: 3px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .confidence {
+            font-size: 12px;
+            color: #605e5c;
+            margin-left: 10px;
+        }
+        .timestamp {
+            font-size: 11px;
+            color: #8a8886;
+            float: right;
+        }
+        .settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+        }
+        label {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #323130;
+        }
+        select, input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 14px;
+        }
+        .error-message {
+            background-color: #fde7e9;
+            color: #d13438;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #d13438;
+        }
+        .info-message {
+            background-color: #deecf9;
+            color: #0078d4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #0078d4;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 18px;
+            font-weight: bold;
+            color: #0078d4;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #605e5c;
+        }
+        .config-section {
+            background-color: #fff4ce;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #ffaa44;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Azure Speech-to-Text Demo</h1>
+        
+        <div class="config-section">
+            <strong>Configuration Required:</strong> Please update the Azure credentials in the JavaScript section below with your own subscription key and region before using this demo.
+        </div>
+
+        <div class="settings">
+            <div class="setting-group">
+                <label for="language">Language:</label>
+                <select id="language">
+                    <option value="en-US">English (US)</option>
+                    <option value="en-GB">English (UK)</option>
+                    <option value="fr-FR">French</option>
+                    <option value="es-ES">Spanish</option>
+                    <option value="de-DE">German</option>
+                    <option value="it-IT">Italian</option>
+                    <option value="pt-BR">Portuguese (Brazil)</option>
+                    <option value="ja-JP">Japanese</option>
+                    <option value="ko-KR">Korean</option>
+                    <option value="zh-CN">Chinese (Mandarin)</option>
+                </select>
+            </div>
+            <div class="setting-group">
+                <label for="outputFormat">Output Format:</label>
+                <select id="outputFormat">
+                    <option value="detailed">Detailed (with confidence)</option>
+                    <option value="simple">Simple</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-value" id="sessionTime">00:00</div>
+                <div class="stat-label">Session Time</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="resultCount">0</div>
+                <div class="stat-label">Results</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" id="avgConfidence">0%</div>
+                <div class="stat-label">Avg Confidence</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button id="startBtn" class="start-btn">Start Recognition</button>
+            <button id="stopBtn" class="stop-btn" disabled>Stop Recognition</button>
+            <button id="clearBtn" class="clear-btn">Clear Results</button>
+        </div>
+
+        <div id="status" class="status ready">Ready to start Azure Speech Recognition</div>
+
+        <div class="results" id="results">
+            <div style="text-align: center; color: #605e5c; font-style: italic;">
+                Azure Speech recognition results will appear here...
+            </div>
+        </div>
+
+        <div id="errorMessage" class="error-message" style="display: none;"></div>
+    </div>
+
+    <script src="https://aka.ms/csspeech/jsbrowserpackageraw"></script>
+    
+    <script>
+        class AzureSpeechDemo {
+            constructor() {
+                this.isRecognizing = false;
+                this.recognizer = null;
+                this.sessionStartTime = null;
+                this.resultCount = 0;
+                this.confidenceSum = 0;
+                this.sessionTimer = null;
+                
+                // TODO: Replace with your Azure Speech Service credentials
+                this.subscriptionKey = 'YOUR_AZURE_SPEECH_KEY';
+                this.serviceRegion = 'YOUR_AZURE_REGION';
+                
+                this.initializeElements();
+                this.setupEventListeners();
+                this.checkBrowserSupport();
+            }
+
+            initializeElements() {
+                this.startBtn = document.getElementById('startBtn');
+                this.stopBtn = document.getElementById('stopBtn');
+                this.clearBtn = document.getElementById('clearBtn');
+                this.status = document.getElementById('status');
+                this.results = document.getElementById('results');
+                this.errorMessage = document.getElementById('errorMessage');
+                this.languageSelect = document.getElementById('language');
+                this.outputFormatSelect = document.getElementById('outputFormat');
+                this.sessionTimeEl = document.getElementById('sessionTime');
+                this.resultCountEl = document.getElementById('resultCount');
+                this.avgConfidenceEl = document.getElementById('avgConfidence');
+            }
+
+            setupEventListeners() {
+                this.startBtn.addEventListener('click', () => this.startRecognition());
+                this.stopBtn.addEventListener('click', () => this.stopRecognition());
+                this.clearBtn.addEventListener('click', () => this.clearResults());
+                this.languageSelect.addEventListener('change', () => this.changeLanguage());
+            }
+
+            checkBrowserSupport() {
+                if (typeof SpeechSDK === 'undefined') {
+                    this.showError('Azure Speech SDK failed to load. Please check your internet connection.');
+                    this.startBtn.disabled = true;
+                    return false;
+                }
+                
+                if (this.subscriptionKey === 'YOUR_AZURE_SPEECH_KEY') {
+                    this.showError('Please configure your Azure Speech Service credentials in the JavaScript code.');
+                    this.startBtn.disabled = true;
+                    return false;
+                }
+                
+                return true;
+            }
+
+            async startRecognition() {
+                try {
+                    this.hideError();
+                    this.updateStatus('listening', 'Initializing Azure Speech Service...');
+                    
+                    const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
+                        this.subscriptionKey, 
+                        this.serviceRegion
+                    );
+                    
+                    speechConfig.speechRecognitionLanguage = this.languageSelect.value;
+                    speechConfig.outputFormat = this.outputFormatSelect.value === 'detailed' 
+                        ? SpeechSDK.OutputFormat.Detailed 
+                        : SpeechSDK.OutputFormat.Simple;
+
+                    const audioConfig = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+                    this.recognizer = new SpeechSDK.SpeechRecognizer(speechConfig, audioConfig);
+
+                    this.recognizer.recognizing = (s, e) => {
+                        if (e.result.text) {
+                            this.updatePartialResult(e.result.text);
+                        }
+                    };
+
+                    this.recognizer.recognized = (s, e) => {
+                        if (e.result.reason === SpeechSDK.ResultReason.RecognizedSpeech && e.result.text) {
+                            let confidence = null;
+                            
+                            if (e.result.json) {
+                                try {
+                                    const details = JSON.parse(e.result.json);
+                                    if (details.NBest && details.NBest[0] && details.NBest[0].Confidence) {
+                                        confidence = details.NBest[0].Confidence;
+                                    }
+                                } catch (err) {
+                                    console.warn('Could not parse detailed results:', err);
+                                }
+                            }
+                            
+                            this.addFinalResult(e.result.text, confidence);
+                        } else if (e.result.reason === SpeechSDK.ResultReason.NoMatch) {
+                            console.log('No speech could be recognized');
+                        }
+                    };
+
+                    this.recognizer.canceled = (s, e) => {
+                        console.log(`Recognition canceled: ${e.reason}`);
+                        
+                        if (e.reason === SpeechSDK.CancellationReason.Error) {
+                            this.showError(`Recognition error: ${e.errorDetails}`);
+                            this.stopRecognition();
+                        }
+                    };
+
+                    this.recognizer.sessionStarted = (s, e) => {
+                        console.log('Recognition session started');
+                        this.sessionStartTime = Date.now();
+                        this.startSessionTimer();
+                        this.updateStatus('listening', 'Listening... Speak now');
+                    };
+
+                    this.recognizer.sessionStopped = (s, e) => {
+                        console.log('Recognition session stopped');
+                        this.stopSessionTimer();
+                    };
+
+                    this.recognizer.startContinuousRecognitionAsync(
+                        () => {
+                            console.log('Continuous recognition started successfully');
+                            this.isRecognizing = true;
+                            this.startBtn.disabled = true;
+                            this.stopBtn.disabled = false;
+                        },
+                        (err) => {
+                            console.error('Failed to start recognition:', err);
+                            this.showError(`Failed to start recognition: ${err}`);
+                            this.stopRecognition();
+                        }
+                    );
+
+                } catch (error) {
+                    console.error('Recognition error:', error);
+                    this.showError(`Failed to start recognition: ${error.message}`);
+                }
+            }
+
+            stopRecognition() {
+                this.isRecognizing = false;
+                
+                if (this.recognizer) {
+                    this.recognizer.stopContinuousRecognitionAsync(
+                        () => {
+                            this.recognizer.close();
+                            this.recognizer = null;
+                            console.log('Recognition stopped and resources cleaned up');
+                        },
+                        (err) => {
+                            console.error('Error stopping recognition:', err);
+                            if (this.recognizer) {
+                                this.recognizer.close();
+                                this.recognizer = null;
+                            }
+                        }
+                    );
+                }
+                
+                this.updateStatus('ready', 'Recognition stopped');
+                this.startBtn.disabled = false;
+                this.stopBtn.disabled = true;
+                this.stopSessionTimer();
+            }
+
+            changeLanguage() {
+                if (this.recognizer && this.isRecognizing) {
+                    this.stopRecognition();
+                    setTimeout(() => {
+                        this.startRecognition();
+                    }, 1000);
+                }
+            }
+
+            clearResults() {
+                this.results.innerHTML = '<div style="text-align: center; color: #605e5c; font-style: italic;">Azure Speech recognition results will appear here...</div>';
+                this.resultCount = 0;
+                this.confidenceSum = 0;
+                this.updateStats();
+            }
+
+            updateStatus(type, message) {
+                this.status.className = `status ${type}`;
+                this.status.textContent = message;
+            }
+
+            updatePartialResult(text) {
+                const existingPartial = this.results.querySelector('.partial-result');
+                if (existingPartial) {
+                    existingPartial.remove();
+                }
+
+                const partialDiv = document.createElement('div');
+                partialDiv.className = 'partial-result';
+                partialDiv.textContent = `Partial: ${text}`;
+                this.results.appendChild(partialDiv);
+                this.results.scrollTop = this.results.scrollHeight;
+            }
+
+            addFinalResult(text, confidence) {
+                const existingPartial = this.results.querySelector('.partial-result');
+                if (existingPartial) {
+                    existingPartial.remove();
+                }
+
+                const resultDiv = document.createElement('div');
+                resultDiv.className = 'final-result';
+                
+                const timestamp = new Date().toLocaleTimeString();
+                let confidenceText = '';
+                
+                if (confidence !== null && confidence !== undefined) {
+                    const confidencePercent = Math.round(confidence * 100);
+                    confidenceText = `<span class="confidence">Confidence: ${confidencePercent}%</span>`;
+                    this.confidenceSum += confidence;
+                }
+                
+                resultDiv.innerHTML = `
+                    <span class="timestamp">${timestamp}</span>
+                    <div>${text}</div>
+                    ${confidenceText}
+                `;
+                
+                this.results.appendChild(resultDiv);
+                this.results.scrollTop = this.results.scrollHeight;
+                
+                this.resultCount++;
+                this.updateStats();
+            }
+
+            startSessionTimer() {
+                this.sessionTimer = setInterval(() => {
+                    if (this.sessionStartTime) {
+                        const elapsed = Math.floor((Date.now() - this.sessionStartTime) / 1000);
+                        const minutes = Math.floor(elapsed / 60);
+                        const seconds = elapsed % 60;
+                        this.sessionTimeEl.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                }, 1000);
+            }
+
+            stopSessionTimer() {
+                if (this.sessionTimer) {
+                    clearInterval(this.sessionTimer);
+                    this.sessionTimer = null;
+                }
+            }
+
+            updateStats() {
+                this.resultCountEl.textContent = this.resultCount;
+                
+                if (this.resultCount > 0 && this.confidenceSum > 0) {
+                    const avgConfidence = Math.round((this.confidenceSum / this.resultCount) * 100);
+                    this.avgConfidenceEl.textContent = `${avgConfidence}%`;
+                } else {
+                    this.avgConfidenceEl.textContent = '0%';
+                }
+            }
+
+            showError(message) {
+                this.errorMessage.textContent = message;
+                this.errorMessage.style.display = 'block';
+                this.updateStatus('error', 'Error occurred');
+            }
+
+            hideError() {
+                this.errorMessage.style.display = 'none';
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('Azure Speech-to-Text Demo Initialized');
+            new AzureSpeechDemo();
+        });
+    </script>
+</body>
+</html>
